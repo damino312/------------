@@ -6,6 +6,38 @@ import {
 } from './ollama-native.adapter.js';
 
 describe('ollama native adapter', () => {
+  it('prefers request model over env default', () => {
+    const body = buildNativeChatBody(
+      {
+        model: 'qwen2.5:7b',
+        messages: [{ role: 'user', content: 'hi' }],
+        stream: true,
+      },
+      {
+        OLLAMA_MODEL: 'qwen3:14b',
+        OLLAMA_THINK: false,
+      } as never,
+    );
+
+    expect(body.model).toBe('qwen2.5:7b');
+  });
+
+  it('falls back to env model when request model is empty', () => {
+    const body = buildNativeChatBody(
+      {
+        model: '  ',
+        messages: [{ role: 'user', content: 'hi' }],
+        stream: true,
+      },
+      {
+        OLLAMA_MODEL: 'qwen3:14b',
+        OLLAMA_THINK: false,
+      } as never,
+    );
+
+    expect(body.model).toBe('qwen3:14b');
+  });
+
   it('builds native chat body with think=false', () => {
     const body = buildNativeChatBody(
       {
@@ -16,7 +48,6 @@ describe('ollama native adapter', () => {
         temperature: 1,
       },
       {
-        OLLAMA_MODEL: 'qwen3:14b',
         OLLAMA_THINK: false,
       } as never,
     );

@@ -1,6 +1,7 @@
 import type { ChatCompletionRequest } from '../schemas/chat-completion.schema.js';
 import type { EnvConfig } from '../config/env.schema.js';
 import type { AdaptedRequest } from '../tools/tools.adapter.js';
+import { resolveOllamaModel } from './resolve-model.js';
 
 export type OllamaNativeChatBody = {
   model: string;
@@ -20,7 +21,7 @@ export function buildNativeChatBody(
     request;
 
   const body: OllamaNativeChatBody = {
-    model: String(env.OLLAMA_MODEL ?? rest.model),
+    model: resolveOllamaModel(rest.model, env.OLLAMA_MODEL),
     messages: rest.messages,
     stream: rest.stream ?? true,
     think: env.OLLAMA_THINK,

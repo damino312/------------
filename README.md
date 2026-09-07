@@ -85,7 +85,7 @@ curl http://<MAC_LAN_IP>:3000/health
 | `PORT` | `3000` | Порт прокси |
 | `HOST` | `0.0.0.0` | Bind address |
 | `OLLAMA_BASE_URL` | `http://127.0.0.1:11434` | URL Ollama |
-| `OLLAMA_MODEL` | — | Override модели из CHIM |
+| `OLLAMA_MODEL` | — | Fallback-модель, если в запросе `model` пустой |
 | `OLLAMA_THINK` | `false` | Включить thinking у Qwen3/DeepSeek (`true`/`false`) |
 | `TOOLS_MODE` | `pass-through` | `pass-through` или `prompt` |
 | `HTTP_TIMEOUT` | `120000` | Таймаут запроса к Ollama (мс) |

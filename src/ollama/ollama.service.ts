@@ -21,6 +21,7 @@ import {
   nativeResponseToOpenAi,
   pipeNativeStreamAsOpenAiSse,
 } from './ollama-native.adapter.js';
+import { resolveOllamaModel } from './resolve-model.js';
 
 @Injectable()
 export class OllamaService {
@@ -48,7 +49,7 @@ export class OllamaService {
 
     const payload: Record<string, unknown> = {
       ...body,
-      model: this.env.OLLAMA_MODEL ?? body.model,
+      model: resolveOllamaModel(body.model, this.env.OLLAMA_MODEL),
     };
 
     if (_toolsInjected) {
