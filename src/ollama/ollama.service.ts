@@ -10,6 +10,17 @@ import { ChatCompletionResponseSchema } from '../schemas/chat-completion.schema.
 import { ENV_CONFIG } from '../config/configuration.js';
 import type { EnvConfig } from '../config/env.schema.js';
 import { ToolsAdapter, type AdaptedRequest } from '../tools/tools.adapter.js';
+import {
+  applyOllamaOptions,
+  pipeSanitizedSseStream,
+  sanitizeNonStreamResponse,
+} from './reasoning.sanitizer.js';
+import {
+  buildNativeChatBody,
+  collectNativeStreamContent,
+  nativeResponseToOpenAi,
+  pipeNativeStreamAsOpenAiSse,
+} from './ollama-native.adapter.js';
 
 @Injectable()
 export class OllamaService {
@@ -45,7 +56,7 @@ export class OllamaService {
       delete payload.tool_choice;
     }
 
-    return payload;
+    return applyOllamaOptions(payload, this.env);
   }
 
   buildHeaders(): Record<string, string> {
@@ -110,7 +121,79 @@ export class OllamaService {
     return error.status === 400 || error.status === 422;
   }
 
+  private shouldUseNativeChatApi(): boolean {
+    return !this.env.OLLAMA_THINK;
+  }
+
   private async forwardToOllama(
+    request: AdaptedRequest,
+    stream: boolean,
+    res: Response | undefined,
+    usePromptStreamTransform: boolean,
+  ): Promise<unknown> {
+    if (this.shouldUseNativeChatApi()) {
+      return this.forwardToNativeChat(
+        request,
+        stream,
+        res,
+        usePromptStreamTransform,
+      );
+    }
+
+    return this.forwardToOpenAiCompat(
+      request,
+      stream,
+      res,
+      usePromptStreamTransform,
+    );
+  }
+
+  private async forwardToNativeChat(
+    request: AdaptedRequest,
+    stream: boolean,
+    res: Response | undefined,
+    usePromptStreamTransform: boolean,
+  ): Promise<unknown> {
+    const body = buildNativeChatBody(request, this.env);
+    const url = `${this.env.OLLAMA_BASE_URL}/api/chat`;
+
+    this.logger.debug(
+      `Forwarding to Ollama /api/chat: model=${body.model}, stream=${stream}, think=${body.think}`,
+    );
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: this.buildHeaders(),
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(this.env.HTTP_TIMEOUT),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new OllamaRequestError(response.status, errorText);
+    }
+
+    if (stream && res) {
+      if (usePromptStreamTransform) {
+        await this.streamNativeWithPromptTransform(response, res);
+        return;
+      }
+
+      await this.pipeNativeStream(response, res);
+      return;
+    }
+
+    const json = nativeResponseToOpenAi(await response.json());
+
+    if (usePromptStreamTransform && res) {
+      await this.transformJsonToSse(json, res);
+      return;
+    }
+
+    return ChatCompletionResponseSchema.parse(json);
+  }
+
+  private async forwardToOpenAiCompat(
     request: AdaptedRequest,
     stream: boolean,
     res: Response | undefined,
@@ -120,7 +203,7 @@ export class OllamaService {
     const url = `${this.env.OLLAMA_BASE_URL}/v1/chat/completions`;
 
     this.logger.debug(
-      `Forwarding to Ollama: model=${String(body.model)}, stream=${stream}`,
+      `Forwarding to Ollama /v1/chat/completions: model=${String(body.model)}, stream=${stream}, think=${String(body.think)}`,
     );
 
     const response = await fetch(url, {
@@ -145,7 +228,7 @@ export class OllamaService {
       return;
     }
 
-    const json = await response.json();
+    const json = sanitizeNonStreamResponse(await response.json());
 
     if (usePromptStreamTransform && res) {
       await this.transformJsonToSse(json, res);
@@ -153,6 +236,47 @@ export class OllamaService {
     }
 
     return ChatCompletionResponseSchema.parse(json);
+  }
+
+  private async pipeNativeStream(
+    ollamaResponse: globalThis.Response,
+    res: Response,
+  ): Promise<void> {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+
+    await pipeNativeStreamAsOpenAiSse(ollamaResponse, (chunk) => {
+      res.write(chunk);
+    });
+
+    res.end();
+  }
+
+  private async streamNativeWithPromptTransform(
+    ollamaResponse: globalThis.Response,
+    res: Response,
+  ): Promise<void> {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+
+    const fullContent = await collectNativeStreamContent(ollamaResponse);
+    const toolCall = this.toolsAdapter.parseToolCallFromText(fullContent);
+
+    if (toolCall) {
+      res.write(
+        this.toolsAdapter.buildToolCallSseChunk(
+          toolCall.name,
+          toolCall.arguments,
+        ),
+      );
+    } else if (fullContent) {
+      res.write(this.toolsAdapter.buildContentSseChunk(fullContent));
+    }
+
+    res.write(this.toolsAdapter.buildDoneChunk());
+    res.end();
   }
 
   private async pipeStream(
@@ -167,23 +291,11 @@ export class OllamaService {
       throw new ServiceUnavailableException('Empty stream from Ollama');
     }
 
-    const reader = ollamaResponse.body.getReader();
-    const decoder = new TextDecoder();
+    await pipeSanitizedSseStream(ollamaResponse, (chunk) => {
+      res.write(chunk);
+    });
 
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-
-        if (done) {
-          break;
-        }
-
-        res.write(decoder.decode(value, { stream: true }));
-      }
-    } finally {
-      reader.releaseLock();
-      res.end();
-    }
+    res.end();
   }
 
   private async streamWithPromptTransform(
@@ -220,10 +332,12 @@ export class OllamaService {
     const toolCall = this.toolsAdapter.parseToolCallFromText(fullContent);
 
     if (toolCall) {
-      res.write(this.toolsAdapter.buildToolCallSseChunk(
-        toolCall.name,
-        toolCall.arguments,
-      ));
+      res.write(
+        this.toolsAdapter.buildToolCallSseChunk(
+          toolCall.name,
+          toolCall.arguments,
+        ),
+      );
     } else if (fullContent) {
       res.write(this.toolsAdapter.buildContentSseChunk(fullContent));
     }

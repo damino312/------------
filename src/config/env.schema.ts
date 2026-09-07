@@ -6,6 +6,10 @@ export const EnvSchema = z.object({
   OLLAMA_BASE_URL: z.url().default('http://127.0.0.1:11434'),
   OLLAMA_MODEL: z.string().optional(),
   OLLAMA_API_KEY: z.string().optional(),
+  OLLAMA_THINK: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
   TOOLS_MODE: z.enum(['pass-through', 'prompt']).default('pass-through'),
   HTTP_TIMEOUT: z.coerce.number().int().default(120_000),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn']).default('info'),

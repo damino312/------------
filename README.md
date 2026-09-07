@@ -49,6 +49,13 @@ curl -X POST http://localhost:3000/v1/chat/completions \
   -d '{"model":"llama3.1:8b","messages":[{"role":"user","content":"Hello"}],"stream":true}'
 ```
 
+**Swagger UI (debug):** http://localhost:3000/docs
+
+В Swagger уже заполнены примеры запросов:
+- **Simple dialogue (stream)** — обычный диалог без tools
+- **CHIM with tools** — запрос с игровыми функциями (Follow, StopAll)
+- **Non-stream (debug)** — удобно смотреть полный JSON-ответ в UI
+
 ## Настройка CHIM (Gaming PC)
 
 1. Откройте CHIM Web UI → **Configuration** → **LLM** → **New Connector**
@@ -79,6 +86,7 @@ curl http://<MAC_LAN_IP>:3000/health
 | `HOST` | `0.0.0.0` | Bind address |
 | `OLLAMA_BASE_URL` | `http://127.0.0.1:11434` | URL Ollama |
 | `OLLAMA_MODEL` | — | Override модели из CHIM |
+| `OLLAMA_THINK` | `false` | Включить thinking у Qwen3/DeepSeek (`true`/`false`) |
 | `TOOLS_MODE` | `pass-through` | `pass-through` или `prompt` |
 | `HTTP_TIMEOUT` | `120000` | Таймаут запроса к Ollama (мс) |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn` |
@@ -102,11 +110,21 @@ CHIM использует function calling для игровых действи�
 | `mistral-nemo` | Да |
 | `llama3.2:3b` | Ограниченно → `TOOLS_MODE=prompt` |
 
+### Qwen3 и reasoning-модели
+
+Qwen3 по умолчанию тратит токены на внутренние «мысли» (`reasoning`), а CHIM читает только `content`.
+
+**Важно:** Ollama endpoint `/v1/chat/completions` **игнорирует** `think: false` у Qwen3. Прокси поэтому при `OLLAMA_THINK=false` (по умолчанию) использует нативный **`/api/chat`** с `think: false` и конвертирует ответ в OpenAI-формат.
+
+Если ответ всё ещё пустой — увеличьте `max_tokens` в CHIM (минимум 100–150 для qwen3).
+
 ## Firewall (macOS)
 
 Разрешите входящие подключения на порты **3000** (NestJS) в System Settings → Network → Firewall.
 
 ## API
+
+Swagger UI: **http://localhost:3000/docs**
 
 ### `GET /health`
 
