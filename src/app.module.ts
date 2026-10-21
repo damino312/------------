@@ -8,6 +8,9 @@ import { ToolsAdapter } from './tools/tools.adapter.js';
 import { HealthController } from './health/health.controller.js';
 import { ProxyAuthService } from './common/guards/proxy-auth.service.js';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor.js';
+import { ComputeController } from './compute/compute.controller.js';
+import { ComputeService } from './compute/compute.service.js';
+import { ComputeWorkerService } from './compute/compute-worker.service.js';
 
 @Module({
   imports: [
@@ -16,7 +19,7 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor.js
       validate: validateEnv,
     }),
   ],
-  controllers: [ChatController, HealthController],
+  controllers: [ChatController, HealthController, ComputeController],
   providers: [
     {
       provide: ENV_CONFIG,
@@ -27,6 +30,8 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor.js
     ToolsAdapter,
     ProxyAuthService,
     LoggingInterceptor,
+    ComputeService,
+    ComputeWorkerService,
   ],
 })
 export class AppModule {}
