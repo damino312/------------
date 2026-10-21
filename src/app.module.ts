@@ -8,9 +8,9 @@ import { ToolsAdapter } from './tools/tools.adapter.js';
 import { HealthController } from './health/health.controller.js';
 import { ProxyAuthService } from './common/guards/proxy-auth.service.js';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor.js';
-import { ComputeController } from './compute/compute.controller.js';
-import { ComputeService } from './compute/compute.service.js';
-import { ComputeWorkerService } from './compute/compute-worker.service.js';
+import { ImageThumbnailController } from './media/image-thumbnail.controller.js';
+import { ImageThumbnailService } from './media/image-thumbnail.service.js';
+import { ImageWorkerService } from './media/image-worker.service.js';
 
 @Module({
   imports: [
@@ -19,7 +19,7 @@ import { ComputeWorkerService } from './compute/compute-worker.service.js';
       validate: validateEnv,
     }),
   ],
-  controllers: [ChatController, HealthController, ComputeController],
+  controllers: [ChatController, HealthController, ImageThumbnailController],
   providers: [
     {
       provide: ENV_CONFIG,
@@ -30,8 +30,8 @@ import { ComputeWorkerService } from './compute/compute-worker.service.js';
     ToolsAdapter,
     ProxyAuthService,
     LoggingInterceptor,
-    ComputeService,
-    ComputeWorkerService,
+    ImageThumbnailService,
+    ImageWorkerService,
   ],
 })
 export class AppModule {}
