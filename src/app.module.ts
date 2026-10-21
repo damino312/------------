@@ -11,6 +11,8 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor.js
 import { ImageThumbnailController } from './media/image-thumbnail.controller.js';
 import { ImageThumbnailService } from './media/image-thumbnail.service.js';
 import { ImageWorkerService } from './media/image-worker.service.js';
+import { ParallelPoolController } from './workers-pool/parallel-pool.controller.js';
+import { ParallelPoolService } from './workers-pool/parallel-pool.service.js';
 
 @Module({
   imports: [
@@ -19,7 +21,12 @@ import { ImageWorkerService } from './media/image-worker.service.js';
       validate: validateEnv,
     }),
   ],
-  controllers: [ChatController, HealthController, ImageThumbnailController],
+  controllers: [
+    ChatController,
+    HealthController,
+    ImageThumbnailController,
+    ParallelPoolController,
+  ],
   providers: [
     {
       provide: ENV_CONFIG,
@@ -32,6 +39,7 @@ import { ImageWorkerService } from './media/image-worker.service.js';
     LoggingInterceptor,
     ImageThumbnailService,
     ImageWorkerService,
+    ParallelPoolService,
   ],
 })
 export class AppModule {}
