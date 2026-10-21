@@ -8,6 +8,11 @@ import { ToolsAdapter } from './tools/tools.adapter.js';
 import { HealthController } from './health/health.controller.js';
 import { ProxyAuthService } from './common/guards/proxy-auth.service.js';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor.js';
+import { ImageThumbnailController } from './media/image-thumbnail.controller.js';
+import { ImageThumbnailService } from './media/image-thumbnail.service.js';
+import { ImageWorkerService } from './media/image-worker.service.js';
+import { ParallelPoolController } from './workers-pool/parallel-pool.controller.js';
+import { ParallelPoolService } from './workers-pool/parallel-pool.service.js';
 
 @Module({
   imports: [
@@ -16,7 +21,12 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor.js
       validate: validateEnv,
     }),
   ],
-  controllers: [ChatController, HealthController],
+  controllers: [
+    ChatController,
+    HealthController,
+    ImageThumbnailController,
+    ParallelPoolController,
+  ],
   providers: [
     {
       provide: ENV_CONFIG,
@@ -27,6 +37,9 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor.js
     ToolsAdapter,
     ProxyAuthService,
     LoggingInterceptor,
+    ImageThumbnailService,
+    ImageWorkerService,
+    ParallelPoolService,
   ],
 })
 export class AppModule {}
